@@ -1,0 +1,14 @@
+---
+# Deploys the PREBUILT static bundle for https://staff.atline.com.my.
+# No build step and no npm install: these are finished files, served directly
+# by Apache. There is no Node application behind this domain.
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home2/atlineco/staff.atline.com.my
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -R . $DEPLOYPATH/
+    # .git would otherwise be world-readable under the document root.
+    - /bin/rm -rf $DEPLOYPATH/.git
+    # Fails loudly rather than silently serving a directory listing.
+    - test -f $DEPLOYPATH/index.html || echo "WARNING: $DEPLOYPATH/index.html is missing"
+    - test -f $DEPLOYPATH/.htaccess || echo "WARNING: $DEPLOYPATH/.htaccess is missing"

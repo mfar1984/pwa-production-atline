@@ -1,0 +1,94 @@
+# ATLINE Staff Portal (PWA) — Apache config for staff.atline.com.my
+#
+# This is a prebuilt static single-page app. There is no Node process and no
+# Passenger block here on purpose: cPanel serves these files directly.
+#
+# Copied verbatim into pwa-production/ by scripts/package-production.js.
+
+# ── HTTPS only ────────────────────────────────────────────────────────────────
+# A PWA will not install and the service worker will not register over plain
+# HTTP, so this redirect is functional, not just good practice.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# ── SPA fallback ──────────────────────────────────────────────────────────────
+# Client-side routes have no matching file on disk. Without this, a refresh on
+# any path other than / returns Apache's 404 instead of the app.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Never rewrite real files or directories (assets, icons, manifest, sw.js).
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# ── Caching ───────────────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+  # Hashed filenames change whenever the content changes, so they are safe to
+  # cache for a year.
+  <FilesMatch "\.(js|css|woff2|woff|ttf|otf|eot|svg|png|jpg|jpeg|gif|webp|avif|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # These three are the update mechanism. If they are cached, users stay pinned
+  # to an old build even after a successful deploy.
+  <FilesMatch "^(index\.html|sw\.js|registerSW\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # The service worker must be allowed to control the whole origin.
+  <FilesMatch "^sw\.js$">
+    Header set Service-Worker-Allowed "/"
+  </FilesMatch>
+</IfModule>
+
+# ── Security headers ──────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(self), camera=(self), microphone=()"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+  Header always unset X-Powered-By
+</IfModule>
+
+# ── Compression ───────────────────────────────────────────────────────────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript \
+    application/javascript application/json application/manifest+json image/svg+xml
+</IfModule>
+
+<IfModule mod_brotli.c>
+  AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/css text/javascript \
+    application/javascript application/json application/manifest+json image/svg+xml
+</IfModule>
+
+# ── MIME types ────────────────────────────────────────────────────────────────
+# Served with the wrong type, the manifest is ignored and the install prompt
+# never appears.
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+  AddType image/svg+xml .svg
+  AddType font/woff2 .woff2
+</IfModule>
+
+# ── Deny access to repository and deploy metadata ──────────────────────────────
+<FilesMatch "^(\.htaccess|\.gitignore|\.gitattributes|\.cpanel\.yml)$">
+  Require all denied
+</FilesMatch>
+
+RedirectMatch 404 /\.git
+
+# Static SPA: no directory listings anywhere.
+Options -Indexes
+
+ErrorDocument 404 /index.html

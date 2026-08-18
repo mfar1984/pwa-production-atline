@@ -1,0 +1,6 @@
+# Prebuilt static bundle. Only build output and deploy config belong here.
+node_modules/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
